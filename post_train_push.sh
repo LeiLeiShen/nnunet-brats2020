@@ -21,7 +21,9 @@ cp "$OUTPUT_DIR/logs.json" "$REPO_DIR/$RESULTS_SUBDIR/"
 cp "$OUTPUT_DIR/params.json" "$REPO_DIR/$RESULTS_SUBDIR/"
 
 # === Git 推送到远程仓库 ===
-git add "$RESULTS_SUBDIR"
+cd $REPO_DIR
+git add "$RESULTS_SUBDIR"/checkpoints/*.ckpt
+git add "$RESULTS_SUBDIR"/logs.json "$RESULTS_SUBDIR"/params.json
 git commit -m "Auto commit: add training results $RESULTS_SUBDIR"
 git push origin $BRANCH
 
@@ -35,7 +37,8 @@ if [[ -n "$RUNPOD_API_KEY" && -n "$RUNPOD_POD_ID" ]]; then
     -H "Content-Type: application/json" \
     -H "Authorization: $RUNPOD_API_KEY" \
     -d '{
-      "query": "mutation { stopPod(podId: \"'"$RUNPOD_POD_ID"'\") { id status } }"
+      "query": "mutation StopPod($podId: String!) { stopPod(input: { podId: $podId }) { podId status } }",
+      "variables": { "podId": "'"$RUNPOD_POD_ID"'" }
     }'
 else
   echo "⚠️ 环境变量 RUNPOD_API_KEY 或 RUNPOD_POD_ID 未设置，无法关闭实例"

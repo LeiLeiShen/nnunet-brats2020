@@ -5,8 +5,9 @@ data/
 *.nii
 *.nii.gz
 
-# 忽略模型权重和日志
+# 忽略模型权重和日志（但允许特定文件）
 *.ckpt
+!results_*/**/*.ckpt
 *.pt
 *.pth
 *.log
