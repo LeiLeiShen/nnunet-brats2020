@@ -126,3 +126,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # 仅当训练模式下执行自动推送 + 关机
+    args = get_main_args()
+    if args.exec_mode == "train":
+        os.system("bash /workspace/nnunet-brats2020/post_train_push.sh")
