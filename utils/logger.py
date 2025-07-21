@@ -5,12 +5,6 @@
 # You may obtain a copy of the License at
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 
 import os
 import time
@@ -22,25 +16,29 @@ from dllogger import JSONStreamBackend, StdOutBackend, Verbosity
 from pytorch_lightning import Callback
 from pytorch_lightning.utilities import rank_zero_only
 
+# 全局初始化标志，防止重复初始化
+_DLLLOGGER_INITIALIZED = False
+
 
 class DLLogger:
     def __init__(self, log_dir, filename, append=True):
         super().__init__()
-        self._initialize_dllogger(log_dir, filename, append)
+        try:
+            self._initialize_dllogger(log_dir, filename, append)
+        except Exception as e:
+            print(f"[Warning] Failed to initialize DLLLogger: {e}")
 
     @rank_zero_only
     def _initialize_dllogger(self, log_dir, filename, append):
-        from dllogger import logger
-        from dllogger.logger import JSONStreamBackend, Verbosity
-        if hasattr(logger, "_logger_initialized") and logger._logger_initialized:
-            return  # 已初始化则跳过
-            backends = [
-                JSONStreamBackend(Verbosity.VERBOSE, os.path.join(log_dir, filename), append=append),
-                StdOutBackend(Verbosity.VERBOSE),
-            ]
-            logger.init(backends=backends)
-            logger._logger_initialized = True  # 手动设置标记，防止重复初始化
-
+        global _DLLLOGGER_INITIALIZED
+        if _DLLLOGGER_INITIALIZED:
+            return
+        backends = [
+            JSONStreamBackend(Verbosity.VERBOSE, os.path.join(log_dir, filename), append=append),
+            StdOutBackend(Verbosity.VERBOSE),
+        ]
+        logger.init(backends=backends)
+        _DLLLOGGER_INITIALIZED = True
 
     @rank_zero_only
     def log_metrics(self, metrics, step=None):
@@ -84,8 +82,8 @@ class LoggingCallback(Callback):
         if trainer.current_epoch == 1:
             self.do_step()
 
-    def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx):
-        if pl_module.start_benchmark == 1:
+    def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
+        if hasattr(pl_module, "start_benchmark") and pl_module.start_benchmark == 1:
             self.do_step()
 
     def process_performance_stats(self):
@@ -114,5 +112,5 @@ class LoggingCallback(Callback):
         self._log()
 
     def on_test_end(self, trainer, pl_module):
-        if pl_module.start_benchmark == 1:
+        if hasattr(pl_module, "start_benchmark") and pl_module.start_benchmark == 1:
             self._log()
