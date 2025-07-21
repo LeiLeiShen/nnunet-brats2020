@@ -1,2 +1,0 @@
-DLLL {"timestamp": "1753098017.927902", "datetime": "2025-07-21 11:40:17.927902+00:00", "elapsedtime": "239.659068", "type": "LOG", "step": 0, "data": {"Dice": 60.97, "Val Loss": 0.48, "Max Dice": 60.97, "Best epoch": 0, "Train Loss": 0.6431, "D1": 43.37, "D2": 65.62, "D3": 73.92}}
-DLLL {"timestamp": "1753098020.89636", "datetime": "2025-07-21 11:40:20.896360+00:00", "elapsedtime": "242.627526", "type": "LOG", "step": [], "data": {"dice_score": 60.97, "train_loss": 0.6431, "val_loss": 0.3903, "Epoch": 0}}
