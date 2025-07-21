@@ -2,13 +2,17 @@
 
 # === 设置变量 ===
 REPO_DIR="/workspace/nnunet-brats2020"
+RESULTS_REPO_DIR="/workspace/nnunet-results"
 OUTPUT_DIR="/workspace/output"
 BRANCH="main"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 RESULTS_SUBDIR="results_$TIMESTAMP"
+RCLONE_CONF_PATH="$REPO_DIR/rclone.conf"
 
-# === 进入代码仓库目录 ===
-cd "$REPO_DIR" || exit
+# === 克隆结果仓库（如果还未拉取） ===
+if [ ! -d "$RESULTS_REPO_DIR/.git" ]; then
+  git clone https://github.com/LeiLeiShen/nnunet-results.git "$RESULTS_REPO_DIR"
+fi
 
 # === 设置 Git 身份（可选） ===
 git config --global user.name "LeiLeiShen"
@@ -23,7 +27,8 @@ import matplotlib.pyplot as plt
 import os
 
 output_dir = "$OUTPUT_DIR"
-result_dir = os.path.join("$REPO_DIR", "$RESULTS_SUBDIR")
+result_dir = os.path.join("$RESULTS_REPO_DIR", "$RESULTS_SUBDIR")
+os.makedirs(result_dir, exist_ok=True)
 
 log_file = os.path.join(output_dir, "logs.json")
 if os.path.exists(log_file):
@@ -65,29 +70,22 @@ else:
     print("⚠️ logs.json not found, skipping curve generation.")
 EOF
 
+# === 拷贝训练结果到结果仓库 ===
+mkdir -p "$RESULTS_REPO_DIR/$RESULTS_SUBDIR"
+cp -r "$OUTPUT_DIR/checkpoints" "$RESULTS_REPO_DIR/$RESULTS_SUBDIR/"
+cp "$OUTPUT_DIR/logs.json" "$RESULTS_REPO_DIR/$RESULTS_SUBDIR/"
+cp "$OUTPUT_DIR/params.json" "$RESULTS_REPO_DIR/$RESULTS_SUBDIR/"
 
-# === 拷贝训练结果到本地 repo 文件夹 ===
-mkdir -p "$REPO_DIR/$RESULTS_SUBDIR"
-cp -r "$OUTPUT_DIR/checkpoints" "$REPO_DIR/$RESULTS_SUBDIR/"
-cp "$OUTPUT_DIR/logs.json" "$REPO_DIR/$RESULTS_SUBDIR/"
-cp "$OUTPUT_DIR/params.json" "$REPO_DIR/$RESULTS_SUBDIR/"
-
-# === Git 推送（可选）: 仅日志和配置，不含大模型文件 ===
-cd "$REPO_DIR"
-git add "$RESULTS_SUBDIR/logs.json" "$RESULTS_SUBDIR/params.json"
+# === Git 推送到 nnunet-results 仓库 ===
+cd "$RESULTS_REPO_DIR"
+git add "$RESULTS_SUBDIR/logs.json" "$RESULTS_SUBDIR/params.json" "$RESULTS_SUBDIR/training_curves.png"
 git commit -m "Auto commit: add training results $RESULTS_SUBDIR"
 git push origin "$BRANCH"
 
-# === 上传训练结果到 Google Drive (rclone 配置名为 gdrive) ===
-# 上传整个结果目录
-echo "📤 Uploading results to Google Drive via rclone..."
-# 上传曲线图
-rclone copy "$REPO_DIR/$RESULTS_SUBDIR/training_curves.png" gdrive:nnunet_results/"$RESULTS_SUBDIR" --progress
+# === 上传训练结果到 Google Drive via rclone.conf（来自仓库） ===
+echo "📤 Uploading results to Google Drive..."
 
-rclone copy "$REPO_DIR/$RESULTS_SUBDIR" gdrive:nnunet_results/"$RESULTS_SUBDIR" --progress
-
-# === 等待几秒确保上传完成 ===
-sleep 30
+rclone copy "$RESULTS_REPO_DIR/$RESULTS_SUBDIR" gdrive:nnunet_results/"$RESULTS_SUBDIR" --config="$RCLONE_CONF_PATH" --progress
 
 # === 自动关闭 RunPod 实例 ===
 if [[ -n "$RUNPOD_API_KEY" && -n "$RUNPOD_POD_ID" ]]; then
