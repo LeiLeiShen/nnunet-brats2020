@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash 
 
 set -e
 
@@ -33,41 +33,52 @@ result_dir = os.path.join("$RESULTS_REPO_DIR", "$RESULTS_SUBDIR")
 os.makedirs(result_dir, exist_ok=True)
 
 log_file = os.path.join(output_dir, "logs.json")
+
+def safe_get(logs, key, default_len):
+    return logs.get(key, [None] * default_len)
+
 if os.path.exists(log_file) and os.path.getsize(log_file) > 0:
-    with open(log_file) as f:
-        logs = json.load(f)
+    try:
+        with open(log_file) as f:
+            logs = json.load(f)
 
-    epochs = list(range(len(logs["dice"])))
-    dice_total = logs["dice"]
-    d1 = logs["dice_per_class"]["1"]
-    d2 = logs["dice_per_class"]["2"]
-    d3 = logs["dice_per_class"]["3"]
-    train_loss = logs["train_loss"]
-    val_loss = logs["val_loss"]
+        epochs = list(range(len(logs.get("dice", []))))
+        if not epochs:
+            print("⚠️ logs.json is present but contains no 'dice' key. Skipping curve generation.")
+        else:
+            dice_total = safe_get(logs, "dice", len(epochs))
+            dice_per_class = logs.get("dice_per_class", {})
+            d1 = safe_get(dice_per_class, "1", len(epochs))
+            d2 = safe_get(dice_per_class, "2", len(epochs))
+            d3 = safe_get(dice_per_class, "3", len(epochs))
+            train_loss = safe_get(logs, "train_loss", len(epochs))
+            val_loss = safe_get(logs, "val_loss", len(epochs))
 
-    plt.figure(figsize=(12, 6))
-    plt.subplot(1, 2, 1)
-    plt.plot(epochs, train_loss, label='Train Loss')
-    plt.plot(epochs, val_loss, label='Val Loss')
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.title("Loss Curve")
-    plt.legend()
+            plt.figure(figsize=(12, 6))
+            plt.subplot(1, 2, 1)
+            plt.plot(epochs, train_loss, label='Train Loss')
+            plt.plot(epochs, val_loss, label='Val Loss')
+            plt.xlabel("Epoch")
+            plt.ylabel("Loss")
+            plt.title("Loss Curve")
+            plt.legend()
 
-    plt.subplot(1, 2, 2)
-    plt.plot(epochs, dice_total, label='Dice')
-    plt.plot(epochs, d1, label='Dice D1')
-    plt.plot(epochs, d2, label='Dice D2')
-    plt.plot(epochs, d3, label='Dice D3')
-    plt.xlabel("Epoch")
-    plt.ylabel("Dice Score")
-    plt.title("Dice Score Curve")
-    plt.legend()
+            plt.subplot(1, 2, 2)
+            plt.plot(epochs, dice_total, label='Dice')
+            plt.plot(epochs, d1, label='Dice D1')
+            plt.plot(epochs, d2, label='Dice D2')
+            plt.plot(epochs, d3, label='Dice D3')
+            plt.xlabel("Epoch")
+            plt.ylabel("Dice Score")
+            plt.title("Dice Score Curve")
+            plt.legend()
 
-    fig_path = os.path.join(result_dir, "training_curves.png")
-    plt.tight_layout()
-    plt.savefig(fig_path)
-    print(f"✅ Saved training curves to {fig_path}")
+            fig_path = os.path.join(result_dir, "training_curves.png")
+            plt.tight_layout()
+            plt.savefig(fig_path)
+            print(f"✅ Saved training curves to {fig_path}")
+    except Exception as e:
+        print(f"⚠️ Error while parsing logs.json: {e}. Skipping curve generation.")
 else:
     print("⚠️ logs.json not found or empty. Skipping curve generation.")
 EOF
@@ -81,7 +92,7 @@ cp "$OUTPUT_DIR/params.json" "$RESULTS_REPO_DIR/$RESULTS_SUBDIR/" 2>/dev/null ||
 # === Git 推送到 nnunet-results 仓库 ===
 cd "$RESULTS_REPO_DIR"
 
-# 创建 main 分支（仅首次）
+# 创建 main 分支（首次）
 if [ ! -d .git/refs/heads/main ]; then
   git checkout -b main
 fi
@@ -112,3 +123,4 @@ if [[ -n "$RUNPOD_API_KEY" && -n "$RUNPOD_POD_ID" ]]; then
 else
   echo "ℹ️ 跳过自动关闭 RunPod。RUNPOD_API_KEY 或 POD_ID 未配置。"
 fi
+
