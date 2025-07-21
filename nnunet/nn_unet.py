@@ -55,8 +55,12 @@ class NNUnet(pl.LightningModule):
             else:
                 self.tta_flips = [[2], [3], [4], [2, 3], [2, 4], [3, 4], [2, 3, 4]]
             self.dice = Dice(self.n_class, self.args.brats)
-            #if self.args.exec_mode in ["train", "evaluate"] and not self.args.benchmark:
-                #self.dllogger = DLLogger(args.results, args.logname)
+            if self.args.exec_mode in ["train", "evaluate"] and not self.args.benchmark:
+                try:
+                    self.dllogger = DLLogger(args.results, args.logname)
+                except:
+                    pass  # 如果已初始化则忽略
+                    
 
     def forward(self, img):
         return torch.argmax(self.model(img), 1)
