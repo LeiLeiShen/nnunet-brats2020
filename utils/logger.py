@@ -31,15 +31,16 @@ class DLLogger:
     @rank_zero_only
     def _initialize_dllogger(self, log_dir, filename, append):
         from dllogger import logger
-        from dllogger.logger import DLLLoggerAlreadyInitialized
-        try:
+        from dllogger.logger import JSONStreamBackend, Verbosity
+        if hasattr(logger, "_logger_initialized") and logger._logger_initialized:
+            return  # 已初始化则跳过
             backends = [
                 JSONStreamBackend(Verbosity.VERBOSE, os.path.join(log_dir, filename), append=append),
                 StdOutBackend(Verbosity.VERBOSE),
             ]
             logger.init(backends=backends)
-        except DLLLoggerAlreadyInitialized:
-            pass  # 忽略重复初始化错误
+            logger._logger_initialized = True  # 手动设置标记，防止重复初始化
+
 
     @rank_zero_only
     def log_metrics(self, metrics, step=None):
