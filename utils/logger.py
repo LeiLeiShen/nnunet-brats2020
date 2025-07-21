@@ -72,11 +72,9 @@ class LoggingCallback(Callback):
             self.dllogger.log_metadata(f"latency_{self.mode}_{level}", {"unit": "ms"})
 
     def do_step(self):
-        if self.step > self.warmup_steps:
-            self.step += 1
-            return
         torch.cuda.synchronize()
         self.timestamps.append(time.perf_counter())
+
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
         self.do_step()  # ✅ 不再判断 epoch
