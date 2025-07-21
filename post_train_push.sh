@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # === 设置变量 ===
 REPO_DIR="/workspace/nnunet-brats2020"
 RESULTS_REPO_DIR="/workspace/nnunet-results"
@@ -9,16 +11,16 @@ TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 RESULTS_SUBDIR="results_$TIMESTAMP"
 RCLONE_CONF_PATH="$REPO_DIR/rclone.conf"
 
-# === 克隆结果仓库（如果还未拉取） ===
+# === 克隆结果仓库 ===
 if [ ! -d "$RESULTS_REPO_DIR/.git" ]; then
   git clone https://github.com/LeiLeiShen/nnunet-results.git "$RESULTS_REPO_DIR"
 fi
 
-# === 设置 Git 身份（可选） ===
+# === 设置 Git 身份 ===
 git config --global user.name "LeiLeiShen"
 git config --global user.email "lshen21@students.desu.edu"
 
-# === 生成 loss 和 dice 曲线图 ===
+# === 生成训练曲线图 ===
 echo "📈 Generating loss and dice curves..."
 
 python <<EOF
@@ -31,7 +33,7 @@ result_dir = os.path.join("$RESULTS_REPO_DIR", "$RESULTS_SUBDIR")
 os.makedirs(result_dir, exist_ok=True)
 
 log_file = os.path.join(output_dir, "logs.json")
-if os.path.exists(log_file):
+if os.path.exists(log_file) and os.path.getsize(log_file) > 0:
     with open(log_file) as f:
         logs = json.load(f)
 
@@ -67,27 +69,37 @@ if os.path.exists(log_file):
     plt.savefig(fig_path)
     print(f"✅ Saved training curves to {fig_path}")
 else:
-    print("⚠️ logs.json not found, skipping curve generation.")
+    print("⚠️ logs.json not found or empty. Skipping curve generation.")
 EOF
 
 # === 拷贝训练结果到结果仓库 ===
 mkdir -p "$RESULTS_REPO_DIR/$RESULTS_SUBDIR"
-cp -r "$OUTPUT_DIR/checkpoints" "$RESULTS_REPO_DIR/$RESULTS_SUBDIR/"
-cp "$OUTPUT_DIR/logs.json" "$RESULTS_REPO_DIR/$RESULTS_SUBDIR/"
-cp "$OUTPUT_DIR/params.json" "$RESULTS_REPO_DIR/$RESULTS_SUBDIR/"
+cp -r "$OUTPUT_DIR/checkpoints" "$RESULTS_REPO_DIR/$RESULTS_SUBDIR/" 2>/dev/null || true
+cp "$OUTPUT_DIR/logs.json" "$RESULTS_REPO_DIR/$RESULTS_SUBDIR/" 2>/dev/null || true
+cp "$OUTPUT_DIR/params.json" "$RESULTS_REPO_DIR/$RESULTS_SUBDIR/" 2>/dev/null || true
 
 # === Git 推送到 nnunet-results 仓库 ===
 cd "$RESULTS_REPO_DIR"
-git add "$RESULTS_SUBDIR/logs.json" "$RESULTS_SUBDIR/params.json" "$RESULTS_SUBDIR/training_curves.png"
-git commit -m "Auto commit: add training results $RESULTS_SUBDIR"
-git push origin "$BRANCH"
 
-# === 上传训练结果到 Google Drive via rclone.conf（来自仓库） ===
+# 创建 main 分支（仅首次）
+if [ ! -d .git/refs/heads/main ]; then
+  git checkout -b main
+fi
+
+git add "$RESULTS_SUBDIR"/*
+git commit -m "Auto commit: add training results $RESULTS_SUBDIR" || echo "⚠️ Nothing to commit."
+git push origin main || echo "⚠️ Git push failed."
+
+# === 上传训练结果到 Google Drive via rclone ===
 echo "📤 Uploading results to Google Drive..."
 
-rclone copy "$RESULTS_REPO_DIR/$RESULTS_SUBDIR" gdrive:nnunet_results/"$RESULTS_SUBDIR" --config="$RCLONE_CONF_PATH" --progress
+if [ -f "$RCLONE_CONF_PATH" ]; then
+  rclone copy "$RESULTS_REPO_DIR/$RESULTS_SUBDIR" gdrive:nnunet_results/"$RESULTS_SUBDIR" --config="$RCLONE_CONF_PATH" --progress
+else
+  echo "⚠️ rclone.conf not found at $RCLONE_CONF_PATH. Skipping Google Drive upload."
+fi
 
-# === 自动关闭 RunPod 实例 ===
+# === 自动关闭 RunPod 实例（非必需）===
 if [[ -n "$RUNPOD_API_KEY" && -n "$RUNPOD_POD_ID" ]]; then
   echo "Shutting down RunPod instance $RUNPOD_POD_ID..."
   curl -X POST https://api.runpod.io/graphql \
@@ -98,5 +110,5 @@ if [[ -n "$RUNPOD_API_KEY" && -n "$RUNPOD_POD_ID" ]]; then
       "variables": { "podId": "'"$RUNPOD_POD_ID"'" }
     }'
 else
-  echo "⚠️ RUNPOD_API_KEY 或 RUNPOD_POD_ID 未设置，无法关闭实例"
+  echo "ℹ️ 跳过自动关闭 RunPod。RUNPOD_API_KEY 或 POD_ID 未配置。"
 fi
