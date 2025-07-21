@@ -79,8 +79,8 @@ class LoggingCallback(Callback):
         self.timestamps.append(time.perf_counter())
 
     def on_train_batch_end(self, trainer, pl_module, outputs, batch, batch_idx):
-        if trainer.current_epoch == 1:
-            self.do_step()
+        self.do_step()  # ✅ 不再判断 epoch
+
 
     def on_test_batch_end(self, trainer, pl_module, outputs, batch, batch_idx, dataloader_idx=0):
         if hasattr(pl_module, "start_benchmark") and pl_module.start_benchmark == 1:
