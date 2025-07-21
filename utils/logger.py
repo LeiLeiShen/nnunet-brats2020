@@ -86,21 +86,26 @@ class LoggingCallback(Callback):
         if hasattr(pl_module, "start_benchmark") and pl_module.start_benchmark == 1:
             self.do_step()
 
-    def process_performance_stats(self):
-        def _round3(val):
-            return round(val, 3)
+def process_performance_stats(self):
+    if len(self.timestamps) < 2:
+        print("[Warning] No timestamps collected. Skipping performance stats.")
+        return {}
 
-        elapsed_times = np.diff(self.timestamps)
-        throughput_imgps = _round3(self.global_batch_size / np.mean(elapsed_times))
-        timestamps_ms = 1000 * elapsed_times
-        stats = {
-            f"throughput_{self.mode}": throughput_imgps,
-            f"latency_{self.mode}_mean": _round3(np.mean(timestamps_ms)),
-        }
-        for level in [90, 95, 99]:
-            stats.update({f"latency_{self.mode}_{level}": _round3(np.percentile(timestamps_ms, level))})
+    def _round3(val):
+        return round(val, 3)
 
-        return stats
+    elapsed_times = np.diff(self.timestamps)
+    throughput_imgps = _round3(self.global_batch_size / np.mean(elapsed_times))
+    timestamps_ms = 1000 * elapsed_times
+    stats = {
+        f"throughput_{self.mode}": throughput_imgps,
+        f"latency_{self.mode}_mean": _round3(np.mean(timestamps_ms)),
+    }
+    for level in [90, 95, 99]:
+        stats.update({f"latency_{self.mode}_{level}": _round3(np.percentile(timestamps_ms, level))})
+
+    return stats
+
 
     @rank_zero_only
     def _log(self):
