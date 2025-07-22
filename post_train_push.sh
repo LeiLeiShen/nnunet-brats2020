@@ -13,7 +13,7 @@ RCLONE_CONF_PATH="$REPO_DIR/rclone.conf"
 GIT_USERNAME="LeiLeiShen"
 GIT_EMAIL="lshen21@students.desu.edu"
 # ☆☆☆ 把自己的 PAT 填入环境变量；脚本里只留占位以防忘记
-GIT_TOKEN=${GITHUB_TOKEN:-"YOUR_GITHUB_PAT_HERE"}
+GIT_TOKEN=${GITHUB_TOKEN:-"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"}
 
 # === 克隆结果仓库（若尚未存在） ===
 if [ ! -d "$RESULTS_REPO_DIR/.git" ]; then
