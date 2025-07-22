@@ -94,7 +94,11 @@ cd "$RESULTS_REPO_DIR"
 git checkout main || git checkout -b main
 git add "$RESULTS_SUBDIR"/*
 git commit -m "Auto commit: add training results $RESULTS_SUBDIR" || echo "⚠️ Nothing to commit."
+# 使用 GitHub Token 进行无交互推送
+GIT_TOKEN=${GITHUB_TOKEN:-"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"}
+git remote set-url origin https://$GIT_TOKEN@github.com/LeiLeiShen/nnunet-results.git
 git push origin main || echo "⚠️ Git push failed."
+
 
 # === 上传训练结果到 Google Drive via rclone ===
 echo "📤 Uploading results to Google Drive..."
