@@ -42,10 +42,8 @@ if os.path.exists(log_file) and os.path.getsize(log_file) > 0:
         with open(log_file) as f:
             logs = json.load(f)
 
-        epochs = list(range(len(logs.get("dice", []))))
-        if not epochs:
-            print("⚠️ logs.json is present but contains no 'dice' key. Skipping curve generation.")
-        else:
+        if logs.get("dice") and len(logs["dice"]) > 0:
+            epochs = list(range(len(logs["dice"])))
             dice_total = safe_get(logs, "dice", len(epochs))
             dice_per_class = logs.get("dice_per_class", {})
             d1 = safe_get(dice_per_class, "1", len(epochs))
@@ -77,6 +75,8 @@ if os.path.exists(log_file) and os.path.getsize(log_file) > 0:
             plt.tight_layout()
             plt.savefig(fig_path)
             print(f"✅ Saved training curves to {fig_path}")
+        else:
+            print("⚠️ logs.json exists but dice key is empty. Skipping.")
     except Exception as e:
         print(f"⚠️ Error while parsing logs.json: {e}. Skipping curve generation.")
 else:
@@ -91,12 +91,7 @@ cp "$OUTPUT_DIR/params.json" "$RESULTS_REPO_DIR/$RESULTS_SUBDIR/" 2>/dev/null ||
 
 # === Git 推送到 nnunet-results 仓库 ===
 cd "$RESULTS_REPO_DIR"
-
-# 创建 main 分支（首次）
-if [ ! -d .git/refs/heads/main ]; then
-  git checkout -b main
-fi
-
+git checkout main || git checkout -b main
 git add "$RESULTS_SUBDIR"/*
 git commit -m "Auto commit: add training results $RESULTS_SUBDIR" || echo "⚠️ Nothing to commit."
 git push origin main || echo "⚠️ Git push failed."
@@ -123,4 +118,3 @@ if [[ -n "$RUNPOD_API_KEY" && -n "$RUNPOD_POD_ID" ]]; then
 else
   echo "ℹ️ 跳过自动关闭 RunPod。RUNPOD_API_KEY 或 POD_ID 未配置。"
 fi
-
