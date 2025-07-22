@@ -1,4 +1,4 @@
-#!/bin/bash 
+#!/bin/bash
 
 set -e
 
@@ -10,15 +10,18 @@ BRANCH="main"
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 RESULTS_SUBDIR="results_$TIMESTAMP"
 RCLONE_CONF_PATH="$REPO_DIR/rclone.conf"
+GIT_USERNAME="LeiLeiShen"
+GIT_EMAIL="lshen21@students.desu.edu"
+GIT_TOKEN=${GITHUB_TOKEN:-"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"}
 
 # === 克隆结果仓库 ===
 if [ ! -d "$RESULTS_REPO_DIR/.git" ]; then
-  git clone https://github.com/LeiLeiShen/nnunet-results.git "$RESULTS_REPO_DIR"
+  git clone https://github.com/$GIT_USERNAME/nnunet-results.git "$RESULTS_REPO_DIR"
 fi
 
 # === 设置 Git 身份 ===
-git config --global user.name "LeiLeiShen"
-git config --global user.email "lshen21@students.desu.edu"
+git config --global user.name "$GIT_USERNAME"
+git config --global user.email "$GIT_EMAIL"
 
 # === 生成训练曲线图 ===
 echo "📈 Generating loss and dice curves..."
@@ -91,18 +94,14 @@ cp "$OUTPUT_DIR/params.json" "$RESULTS_REPO_DIR/$RESULTS_SUBDIR/" 2>/dev/null ||
 
 # === Git 推送到 nnunet-results 仓库 ===
 cd "$RESULTS_REPO_DIR"
-git checkout main || git checkout -b main
+git checkout "$BRANCH" || git checkout -b "$BRANCH"
 git add "$RESULTS_SUBDIR"/*
 git commit -m "Auto commit: add training results $RESULTS_SUBDIR" || echo "⚠️ Nothing to commit."
-# 使用 GitHub Token 进行无交互推送
-GIT_TOKEN=${GITHUB_TOKEN:-"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"}
-git remote set-url origin https://$GIT_TOKEN@github.com/LeiLeiShen/nnunet-results.git
-git push origin main || echo "⚠️ Git push failed."
-
+git remote set-url origin https://$GIT_USERNAME:$GIT_TOKEN@github.com/$GIT_USERNAME/nnunet-results.git
+git push origin "$BRANCH" || echo "⚠️ Git push failed."
 
 # === 上传训练结果到 Google Drive via rclone ===
 echo "📤 Uploading results to Google Drive..."
-
 if [ -f "$RCLONE_CONF_PATH" ]; then
   rclone copy "$RESULTS_REPO_DIR/$RESULTS_SUBDIR" gdrive:nnunet_results/"$RESULTS_SUBDIR" --config="$RCLONE_CONF_PATH" --progress
 else
@@ -122,3 +121,4 @@ if [[ -n "$RUNPOD_API_KEY" && -n "$RUNPOD_POD_ID" ]]; then
 else
   echo "ℹ️ 跳过自动关闭 RunPod。RUNPOD_API_KEY 或 POD_ID 未配置。"
 fi
+
